@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Shelf</title>
+  <meta name="theme-color" content="#1b1d24" />
+  <meta name="description" content="Set a thought down. Get one back when you're free." />
+
+  <!-- installable / iOS home-screen -->
+  <link rel="manifest" href="./manifest.webmanifest" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Shelf" />
+  <link rel="apple-touch-icon" href="./icons/apple-touch-icon-180.png" />
+
+  <style>
+    /* ---- design tokens: "dusk / lamplight" ---- */
+    :root {
+      --bg: #1b1d24;         /* deep blue-slate ground */
+      --bg-lift: #23262f;    /* raised surface */
+      --ink: #e9e6df;        /* warm paper ink */
+      --ink-dim: #9a9ca6;    /* muted, for labels/secondary */
+      --ink-faint: #5d616e;  /* hairlines, placeholders */
+      --lamp: #e0a45c;       /* the one warm accent — used with restraint */
+      --lamp-glow: rgba(224, 164, 92, 0.14);
+      --radius: 18px;
+      --serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, "Times New Roman", serif;
+      --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      --ease: cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    html, body { height: 100%; }
+    body {
+      background: var(--bg);
+      color: var(--ink);
+      font-family: var(--sans);
+      /* respect the notch, keep content off the edges */
+      padding:
+        env(safe-area-inset-top) env(safe-area-inset-right)
+        env(safe-area-inset-bottom) env(safe-area-inset-left);
+      -webkit-font-smoothing: antialiased;
+      text-rendering: optimizeLegibility;
+    }
+
+    #app { max-width: 34rem; margin: 0 auto; min-height: 100dvh; display: flex; flex-direction: column; }
+
+    /* ---- top bar ---- */
+    .bar { display: flex; align-items: center; justify-content: space-between; padding: 1.15rem 1.25rem; }
+    .wordmark { font-family: var(--serif); font-size: 1.15rem; letter-spacing: 0.01em; color: var(--ink); }
+    .wordmark .dot { color: var(--lamp); }
+    .toggle { display: inline-flex; gap: 0.15rem; background: var(--bg-lift); border-radius: 999px; padding: 0.2rem; }
+    .toggle button {
+      font: inherit; font-size: 0.82rem; color: var(--ink-dim);
+      background: transparent; border: 0; border-radius: 999px;
+      padding: 0.4rem 0.85rem; cursor: pointer; transition: color 0.2s, background 0.2s;
+    }
+    .toggle button[aria-selected="true"] { color: var(--bg); background: var(--ink); }
+
+    /* ---- shared stage ---- */
+    main { flex: 1; display: flex; flex-direction: column; justify-content: center; padding: 1.25rem 1.25rem 2.5rem; }
+    .rise { animation: rise 0.5s var(--ease) both; }
+    @keyframes rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+
+    /* ---- capture view ---- */
+    .capture label { display: block; font-size: 0.8rem; color: var(--ink-dim); margin-bottom: 0.9rem; }
+    #entry {
+      width: 100%; min-height: 8.5rem; resize: none;
+      background: var(--bg-lift); color: var(--ink);
+      border: 1px solid transparent; border-radius: var(--radius);
+      padding: 1.1rem 1.15rem; font-family: var(--serif); font-size: 1.35rem; line-height: 1.5;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    #entry::placeholder { color: var(--ink-faint); }
+    #entry:focus { outline: none; border-color: var(--lamp); box-shadow: 0 0 0 4px var(--lamp-glow); }
+
+    .primary {
+      margin-top: 1rem; width: 100%; min-height: 3.25rem;
+      font: inherit; font-size: 1rem; font-weight: 600; color: var(--bg);
+      background: var(--lamp); border: 0; border-radius: var(--radius);
+      cursor: pointer; transition: filter 0.2s, transform 0.05s;
+    }
+    .primary:active { transform: translateY(1px); }
+    .primary:disabled { filter: saturate(0.35) brightness(0.8); cursor: default; }
+    .capture-foot { margin-top: 1.5rem; display: flex; justify-content: space-between; align-items: center; color: var(--ink-dim); font-size: 0.85rem; }
+    .linkish { font: inherit; color: var(--lamp); background: 0; border: 0; cursor: pointer; padding: 0.3rem 0; }
+
+    /* ---- surface view: the thought is the hero ---- */
+    .card-thought { font-family: var(--serif); font-size: 1.8rem; line-height: 1.45; color: var(--ink); text-align: center; padding: 0.5rem 0.25rem 0; }
+    .actions { margin-top: 2.75rem; display: flex; flex-direction: column; gap: 0.55rem; }
+    .act {
+      font: inherit; font-size: 1rem; min-height: 3rem;
+      background: var(--bg-lift); color: var(--ink); border: 0; border-radius: var(--radius);
+      cursor: pointer; transition: background 0.2s;
+    }
+    .act:active { background: #2b2f3a; }
+    .act.did { color: var(--bg); background: var(--lamp); font-weight: 600; }
+    .act.letgo { color: var(--ink-dim); background: transparent; } /* calm, not alarm */
+
+    /* ---- rest / empty states: an invitation, not a dead-end ---- */
+    .rest { text-align: center; }
+    .rest h2 { font-family: var(--serif); font-weight: 500; font-size: 1.5rem; margin-bottom: 0.5rem; }
+    .rest p { color: var(--ink-dim); font-size: 0.95rem; margin-bottom: 2rem; }
+    .rest .primary { max-width: 20rem; margin-inline: auto; }
+    .rest .linkish { display: block; margin: 1rem auto 0; }
+
+    :focus-visible { outline: 2px solid var(--lamp); outline-offset: 2px; }
+    @media (prefers-reduced-motion: reduce) { .rise { animation: none; } * { transition: none !important; } }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <header class="bar">
+      <span class="wordmark">shelf<span class="dot">.</span></span>
+      <div class="toggle" role="tablist" aria-label="Mode">
+        <button id="tab-capture" role="tab" aria-selected="true">Capture</button>
+        <button id="tab-surface" role="tab" aria-selected="false">Surface</button>
+      </div>
+    </header>
+    <main id="stage" aria-live="polite"></main>
+  </div>
+
+  <script type="module" src="./app.js"></script>
+  <script>
+    if ("serviceWorker" in navigator) {
+      window.addEventListener("load", () =>
+        navigator.serviceWorker.register("./sw.js").catch(() => {}),
+      );
+    }
+  </script>
+</body>
+</html>
