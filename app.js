@@ -58,7 +58,9 @@ async function showCapture() {
   const view = el(`
     <section class="capture rise">
       <label for="entry">What's on your mind?</label>
-      <textarea id="entry" placeholder="Set it down here…" autocomplete="off"></textarea>
+      <div class="field">
+        <textarea id="entry" placeholder="Set it down here…" autocomplete="off"></textarea>
+      </div>
       <button class="primary" id="shelf" disabled>Shelf it</button>
       <div class="capture-foot">
         <span id="count">${count === 0 ? "Shelf is clear" : `${count} on the shelf`}</span>
@@ -70,11 +72,19 @@ async function showCapture() {
 
   const entry = view.querySelector("#entry");
   const shelf = view.querySelector("#shelf");
-  const onInput = () => (shelf.disabled = entry.value.trim().length === 0);
+  const baseHeight = entry.style.height;
+  function autoGrow() {
+    entry.style.height = "auto";
+    entry.style.height = `${entry.scrollHeight}px`;
+  }
+  const onInput = () => {
+    shelf.disabled = entry.value.trim().length === 0;
+    autoGrow();
+  };
   entry.addEventListener("input", onInput);
   entry.focus();
 
-  shelf.addEventListener("click", async () => {
+  async function commitCapture() {
     const text = entry.value.trim();
     if (!text) return;
     await saveThought({
@@ -86,11 +96,21 @@ async function showCapture() {
       status: "open",
     });
     entry.value = "";
+    entry.style.height = baseHeight;
     shelf.disabled = true;
     shelf.textContent = "Shelved";
     view.querySelector("#count").textContent = `${await openCount()} on the shelf`;
     setTimeout(() => (shelf.textContent = "Shelf it"), 900);
     entry.focus();
+  }
+
+  shelf.addEventListener("click", commitCapture);
+  // Cmd/Ctrl+Enter submits without leaving the keyboard; plain Enter still makes a newline
+  entry.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && !shelf.disabled) {
+      e.preventDefault();
+      commitCapture();
+    }
   });
 
   view.querySelector("#go-surface").addEventListener("click", showSurface);
@@ -110,10 +130,15 @@ async function showSurface() {
 
   const view = el(`
     <section class="rise">
-      <div class="card-drag"><p class="card-thought">${escapeHtml(surfaced.text)}</p></div>
+      <div class="card-drag">
+        <div class="card">
+          <p class="card-thought">${escapeHtml(surfaced.text)}</p>
+          <p class="card-meta">shelved ${formatAge(surfaced.createdAt)}</p>
+        </div>
+      </div>
       <div class="actions">
         <button class="act did" id="did">Did it</button>
-        <button class="act" id="later">Not now</button>
+        <button class="act later" id="later">Not now</button>
         <button class="act letgo" id="letgo">Let it go</button>
       </div>
     </section>
@@ -245,6 +270,17 @@ function showRest(heading, sub, { none = false } = {}) {
   render(view);
   view.querySelector("#another").addEventListener("click", none ? showCapture : showSurface);
   view.querySelector("#back").addEventListener("click", showCapture);
+}
+
+function formatAge(createdAt, now = Date.now()) {
+  const days = Math.floor((now - createdAt) / 86_400_000);
+  if (days <= 0) return "today";
+  if (days === 1) return "yesterday";
+  if (days < 14) return `${days} days ago`;
+  const weeks = Math.floor(days / 7);
+  if (weeks < 8) return `${weeks} week${weeks > 1 ? "s" : ""} ago`;
+  const months = Math.floor(days / 30);
+  return `${months} month${months > 1 ? "s" : ""} ago`;
 }
 
 function escapeHtml(s) {
