@@ -1,5 +1,5 @@
 // Minimal offline shell. Bump CACHE when you change any cached file.
-const CACHE = "shelf-v1";
+const CACHE = "shelf-v2";
 const ASSETS = [
   "./",
   "./index.html",

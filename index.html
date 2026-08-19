@@ -87,6 +87,8 @@
     .linkish { font: inherit; color: var(--lamp); background: 0; border: 0; cursor: pointer; padding: 0.3rem 0; }
 
     /* ---- surface view: the thought is the hero ---- */
+    .card-drag { touch-action: none; user-select: none; -webkit-user-select: none; cursor: grab; will-change: transform; }
+    .card-drag.dragging { cursor: grabbing; }
     .card-thought { font-family: var(--serif); font-size: 1.8rem; line-height: 1.45; color: var(--ink); text-align: center; padding: 0.5rem 0.25rem 0; }
     .actions { margin-top: 2.75rem; display: flex; flex-direction: column; gap: 0.55rem; }
     .act {
@@ -105,8 +107,23 @@
     .rest .primary { max-width: 20rem; margin-inline: auto; }
     .rest .linkish { display: block; margin: 1rem auto 0; }
 
+    /* ---- undo toast ---- */
+    .toast {
+      position: fixed; left: 50%; bottom: calc(1.5rem + env(safe-area-inset-bottom));
+      transform: translateX(-50%); z-index: 20;
+      display: flex; align-items: center; gap: 0.7rem;
+      background: var(--bg-lift); color: var(--ink);
+      border-radius: 999px; padding: 0.6rem 0.55rem 0.6rem 1.15rem;
+      font-size: 0.88rem; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+      opacity: 0; animation: toast-in 0.25s var(--ease) forwards;
+    }
+    .toast.leaving { animation: toast-out 0.2s var(--ease) forwards; }
+    .toast .undo { font: inherit; font-weight: 600; color: var(--lamp); background: transparent; border: 0; cursor: pointer; padding: 0.3rem 0.7rem; }
+    @keyframes toast-in { from { opacity: 0; transform: translateX(-50%) translateY(8px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
+    @keyframes toast-out { to { opacity: 0; transform: translateX(-50%) translateY(8px); } }
+
     :focus-visible { outline: 2px solid var(--lamp); outline-offset: 2px; }
-    @media (prefers-reduced-motion: reduce) { .rise { animation: none; } * { transition: none !important; } }
+    @media (prefers-reduced-motion: reduce) { .rise { animation: none; } * { transition: none !important; } .toast { animation: none; opacity: 1; } }
   </style>
 </head>
 <body>

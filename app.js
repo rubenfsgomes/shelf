@@ -110,7 +110,7 @@ async function showSurface() {
 
   const view = el(`
     <section class="rise">
-      <p class="card-thought">${escapeHtml(surfaced.text)}</p>
+      <div class="card-drag"><p class="card-thought">${escapeHtml(surfaced.text)}</p></div>
       <div class="actions">
         <button class="act did" id="did">Did it</button>
         <button class="act" id="later">Not now</button>
@@ -120,16 +120,115 @@ async function showSurface() {
   `);
   render(view);
 
-  view.querySelector("#did").addEventListener("click", async () => {
+  // shared by both the tap targets and the swipe gesture below
+  async function doDid() {
     await saveThought(markDone(surfaced));
     showRest("Nice.", "One less open loop.");
-  });
-  view.querySelector("#later").addEventListener("click", () =>
-    showRest("Okay.", "It'll come back around."),
-  );
-  view.querySelector("#letgo").addEventListener("click", async () => {
+  }
+  function doLater() {
+    showRest("Okay.", "It'll come back around.");
+  }
+  async function doLetGo() {
+    // commit immediately (nothing lost if the tab closes), offer a brief undo
     await saveThought(kill(surfaced));
     showRest("Let go.", "You don't have to carry that one.");
+    showUndoToast("Let go.", async () => {
+      await saveThought({ ...surfaced, status: "open" });
+      showCapture();
+    });
+  }
+
+  view.querySelector("#did").addEventListener("click", doDid);
+  view.querySelector("#later").addEventListener("click", doLater);
+  view.querySelector("#letgo").addEventListener("click", doLetGo);
+
+  attachSwipe(view.querySelector(".card-drag"), { onDid: doDid, onLater: doLater, onLetGo: doLetGo });
+}
+
+/* ---------- swipe: right = did it, left = not now, down = let it go ---------- */
+function attachSwipe(card, { onDid, onLater, onLetGo }) {
+  const THRESH_X = 100;
+  const THRESH_Y = 90;
+  let startX = 0, startY = 0, dx = 0, dy = 0, dragging = false, pointerId = null;
+
+  function onDown(e) {
+    dragging = true;
+    pointerId = e.pointerId;
+    startX = e.clientX;
+    startY = e.clientY;
+    dx = dy = 0;
+    card.setPointerCapture(pointerId);
+    card.style.transition = "none";
+    card.classList.add("dragging");
+  }
+  function onMove(e) {
+    if (!dragging || e.pointerId !== pointerId) return;
+    dx = e.clientX - startX;
+    dy = e.clientY - startY;
+    const rot = dx / 18;
+    const dragY = Math.max(dy, dy * 0.4); // resist upward drag, let downward drag through
+    card.style.transform = `translate(${dx}px, ${dragY}px) rotate(${rot}deg)`;
+    card.style.opacity = String(Math.max(0.25, 1 - (Math.abs(dx) + Math.max(dy, 0)) / 420));
+  }
+  function onUp(e) {
+    if (!dragging || e.pointerId !== pointerId) return;
+    dragging = false;
+    card.classList.remove("dragging");
+    const horiz = Math.abs(dx) > Math.abs(dy);
+    if (horiz && dx > THRESH_X) return commit("right", onDid);
+    if (horiz && dx < -THRESH_X) return commit("left", onLater);
+    if (!horiz && dy > THRESH_Y) return commit("down", onLetGo);
+    snapBack();
+  }
+  function onCancel(e) {
+    if (!dragging || e.pointerId !== pointerId) return;
+    dragging = false;
+    card.classList.remove("dragging");
+    snapBack();
+  }
+  function commit(dir, action) {
+    const flyX = dir === "right" ? 520 : dir === "left" ? -520 : dx;
+    const flyY = dir === "down" ? 560 : Math.max(dy, 0);
+    card.style.transition = "transform 0.3s var(--ease), opacity 0.3s var(--ease)";
+    card.style.transform = `translate(${flyX}px, ${flyY}px) rotate(${dx / 18}deg)`;
+    card.style.opacity = "0";
+    setTimeout(action, 260);
+  }
+  function snapBack() {
+    card.style.transition = "transform 0.3s var(--ease), opacity 0.3s var(--ease)";
+    card.style.transform = "";
+    card.style.opacity = "";
+  }
+
+  card.addEventListener("pointerdown", onDown);
+  card.addEventListener("pointermove", onMove);
+  card.addEventListener("pointerup", onUp);
+  card.addEventListener("pointercancel", onCancel);
+}
+
+/* ---------- undo toast: for actions that shouldn't feel final-final ---------- */
+function showUndoToast(message, onUndo, duration = 4500) {
+  document.querySelectorAll(".toast").forEach((t) => t.remove());
+  const toast = el(`
+    <div class="toast">
+      <span>${escapeHtml(message)}</span>
+      <button class="undo">Undo</button>
+    </div>
+  `);
+  document.getElementById("app").appendChild(toast);
+
+  let dismissed = false;
+  const timer = setTimeout(dismiss, duration);
+  function dismiss() {
+    if (dismissed) return;
+    dismissed = true;
+    clearTimeout(timer);
+    toast.classList.add("leaving");
+    setTimeout(() => toast.remove(), 200);
+  }
+  toast.querySelector(".undo").addEventListener("click", async () => {
+    dismiss();
+    await onUndo();
   });
 }
 
